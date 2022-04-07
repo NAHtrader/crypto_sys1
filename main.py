@@ -6,7 +6,7 @@ import time
 import trade
 import save
 
-wallet = {'BTC': ['', '', 0, 0, 0, 450000, "", ], 'ETH': ['', '', 0, 0, 0, 450000, ""], 'XRP': ['', '', 0, 0, 0, 450000, ""],'EOS': ['', '', 0, 0, 0, 450000, ""],'ADA': ['', '', 0, 0, 0, 450000, ""]}
+wallet = {'ETC': ['', '', 0, 0, 0, 800000, ""],'BTC': ['', '', 0, 0, 0, 800000, ""], 'ETH': ['', '', 0, 0, 0, 800000, "", ], 'SOL': ['', '', 0, 0, 0, 800000, "", ]}
 # wallet = {'XRP': ['', '', 0, 0, 0, 500000]}
 # 0 : 매수일
 # 1 : 매도일
@@ -15,14 +15,14 @@ wallet = {'BTC': ['', '', 0, 0, 0, 450000, "", ], 'ETH': ['', '', 0, 0, 0, 45000
 # 4 : 볼륨(수량)
 # 5 : 자본금
 # 6 : 거래 중지일
-# 7 : 현재 포지션
+
 
 # 나중에 XRP / LTC 추가
 while True:
-    bid_const = 4.5
-    ask_const = 2
+    bid_const = 5
+    ask_const = 3
     starttime = time.time()
-    tickers = ['KRW-BTC', 'KRW-ETH', 'KRW-XRP', 'KRW-EOS', 'KRW-ADA']
+    tickers = ['KRW-ETC','KRW-ETH', 'KRW-BTC', 'KRW-SOL']
     akey = ""
     skey = "" 
     
@@ -40,8 +40,13 @@ while True:
                 wallet[t][2]=float(ba['avg_buy_price'])
                 wallet[t][4]=float(ba['balance'])
     print(wallet)
+    
+    today = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')[0:10]
 
     for ticker in tickers:
+        if wallet[ticker[4:]][6] == today:
+            continue
+
         ma_dict = {}
         ma_const = [192, 48, 24]
         atr_const = 24
@@ -56,11 +61,11 @@ while True:
         # ATR 계산하기
         atr = indicator.ATR(data,atr_const)
         if ticker in bid_ticker:
-            target_price = ma_dict['192'] + bid_const*atr # 매수 가격 
+            target_price = round(ma_dict['192'] + bid_const*atr,1) # 매수 가격 
             if price_dict['{}'.format(ticker)]>target_price and (ma_dict['24']-ma_dict['past24'])>(ma_dict['48']-ma_dict['past48']):
                 side = "bid"
                 # 매수 함수 실행
-                # trade.trade(akey,skey,side,ticker,wallet) 
+                trade.trade(akey,skey,side,ticker,wallet) 
                 # Wallet 수정
                 wallet[ticker[4:]][0] =  datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') # 매수일
                 # Slack 메세지 전송
@@ -77,7 +82,7 @@ while True:
                 # Wallet 수정
                 wallet[ticker[4:]][1] =  datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') # 매도일
                 wallet[ticker[4:]][3] =  price_dict['{}'.format(ticker)] # 매도가
-                wallet[ticker[4:]][5] =  price_dict['{}'.format(ticker)]*wallet[ticker[4:]][4]*0.9995 # 자본금 수정
+                wallet[ticker[4:]][5] =  price_dict['{}'.format(ticker)]*wallet[ticker[4:]][4]*0.999 # 자본금 수정
                 # Slack 메세지 전송
                 message = "{} : {} ask".format(ticker,target_price)
                 slackbot.post_message(message)
@@ -85,9 +90,22 @@ while True:
                 save.add_to_csv(ticker,wallet[ticker[4:]])
                 if float(wallet[ticker[4:]][3])<float(wallet[ticker[4:]][4]):
                     wallet[ticker[4:]][6] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')[0:10]
-            ask_6 = ma_dict['192'] + 6*atr
-            message = "{} :: L : {}  / C : {} / A6 : {}".format(ticker,target_price, price_dict['{}'.format(ticker)],ask_6)
-            slackbot.post_message(message)        
-            print("{} : {} loss".format(ticker, target_price))
+            
+            elif (ma_dict['24']-ma_dict['past24'])<(ma_dict['48']-ma_dict['past48']):
+                side = "ask"
+                # 매도 함수 실행
+                trade.trade(akey,skey,side,ticker,wallet)
+                # Wallet 수정
+                wallet[ticker[4:]][1] =  datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') # 매도일
+                wallet[ticker[4:]][3] =  price_dict['{}'.format(ticker)] # 매도가
+                wallet[ticker[4:]][5] =  price_dict['{}'.format(ticker)]*wallet[ticker[4:]][4]*0.999 # 자본금 수정
+                # Slack 메세지 전송
+                message = "{} : {} ask".format(ticker,price_dict['{}'.format(ticker)])
+                slackbot.post_message(message)
+                # CSV 파일 저장
+                save.add_to_csv(ticker,wallet[ticker[4:]])
+                if float(wallet[ticker[4:]][3])<float(wallet[ticker[4:]][4]):
+                    wallet[ticker[4:]][6] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')[0:10]
+                    
     print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
     time.sleep(300.0 - ((time.time() - starttime) % 60.0))
