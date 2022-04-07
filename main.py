@@ -16,7 +16,7 @@ wallet = {'ETC': ['', '', 0, 0, 0, 800000, ""],'BTC': ['', '', 0, 0, 0, 800000, 
 # 5 : 자본금
 # 6 : 거래 중지일
 
-
+run_num = 0
 # 나중에 XRP / LTC 추가
 while True:
     bid_const = 5
@@ -39,10 +39,10 @@ while True:
                     wallet[t][0] = str(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
                 wallet[t][2]=float(ba['avg_buy_price'])
                 wallet[t][4]=float(ba['balance'])
-    print(wallet)
+    
     
     today = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')[0:10]
-
+    print(today)
     for ticker in tickers:
         if wallet[ticker[4:]][6] == today:
             continue
@@ -79,33 +79,40 @@ while True:
                 side = "ask"
                 # 매도 함수 실행
                 trade.trade(akey,skey,side,ticker,wallet)
+                if float(wallet[ticker[4:]][5])>int(price_dict['{}'.format(ticker)]*wallet[ticker[4:]][4]*0.999):
+                    wallet[ticker[4:]][6] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')[0:10]
                 # Wallet 수정
                 wallet[ticker[4:]][1] =  datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') # 매도일
                 wallet[ticker[4:]][3] =  price_dict['{}'.format(ticker)] # 매도가
-                wallet[ticker[4:]][5] =  price_dict['{}'.format(ticker)]*wallet[ticker[4:]][4]*0.999 # 자본금 수정
+                wallet[ticker[4:]][5] =  int(price_dict['{}'.format(ticker)]*wallet[ticker[4:]][4]*0.999) # 자본금 수정
                 # Slack 메세지 전송
                 message = "{} : {} ask".format(ticker,target_price)
                 slackbot.post_message(message)
                 # CSV 파일 저장
-                save.add_to_csv(ticker,wallet[ticker[4:]])
-                if float(wallet[ticker[4:]][3])<float(wallet[ticker[4:]][4]):
-                    wallet[ticker[4:]][6] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')[0:10]
+                # save.add_to_csv(ticker,wallet[ticker[4:]])
             
             elif (ma_dict['24']-ma_dict['past24'])<(ma_dict['48']-ma_dict['past48']):
                 side = "ask"
                 # 매도 함수 실행
                 trade.trade(akey,skey,side,ticker,wallet)
+                if float(wallet[ticker[4:]][5])>int(price_dict['{}'.format(ticker)]*wallet[ticker[4:]][4]*0.999):
+                    wallet[ticker[4:]][6] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')[0:10]
                 # Wallet 수정
                 wallet[ticker[4:]][1] =  datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') # 매도일
                 wallet[ticker[4:]][3] =  price_dict['{}'.format(ticker)] # 매도가
-                wallet[ticker[4:]][5] =  price_dict['{}'.format(ticker)]*wallet[ticker[4:]][4]*0.999 # 자본금 수정
+                wallet[ticker[4:]][5] =  int(price_dict['{}'.format(ticker)]*wallet[ticker[4:]][4]*0.999) # 자본금 수정
                 # Slack 메세지 전송
                 message = "{} : {} ask".format(ticker,price_dict['{}'.format(ticker)])
                 slackbot.post_message(message)
                 # CSV 파일 저장
-                save.add_to_csv(ticker,wallet[ticker[4:]])
-                if float(wallet[ticker[4:]][3])<float(wallet[ticker[4:]][4]):
-                    wallet[ticker[4:]][6] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')[0:10]
-                    
+                # save.add_to_csv(ticker,wallet[ticker[4:]])
+                
+    print(run_num)      
+    run_num +=1
+    print(run_num)
+    if run_num%72==1:
+        message = "Running"
+        slackbot.post_message(message)     
     print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+    print(wallet)
     time.sleep(300.0 - ((time.time() - starttime) % 60.0))
